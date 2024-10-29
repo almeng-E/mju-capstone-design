@@ -138,25 +138,40 @@ tagging_chain = tagging_prompt | llm
 
 
 
-
+# Process batch of data with blank check
 async def process_batch(inputs, batch_index, batch_size, total_batches):
     try:
-        results = await tagging_chain.abatch(inputs, return_exceptions=True)
+        # Filter out inputs with blank or NaN transcripts
+        filtered_inputs = []
+        row_indices = []
         
-        # Process results, handling both successful and exception cases
-        for idx, result in enumerate(results):
-            row_index = batch_index * batch_size + idx
-            if isinstance(result, Exception):
-                print(f"Error in row {row_index}: {result}")
-                df.at[row_index, 'tags'] = 'N/A'
+        for idx, input_data in enumerate(inputs):
+            transcript = input_data.get("transcript_input", "")
+            if pd.isna(transcript) or not str(transcript).strip():  # Check for NaN or empty transcript
+                row_index = batch_index * batch_size + idx
+                df.at[row_index, 'tags'] = 'No Transcript'
+                print(f"Row {row_index}: No Transcript")
             else:
-                combined_list = [item for sublist in result.dict().values() for item in sublist]
-                df.at[row_index, 'tags'] = '+'.join(combined_list)
+                filtered_inputs.append(input_data)
+                row_indices.append(batch_index * batch_size + idx)
         
+        # Process non-blank, non-NaN transcripts
+        if filtered_inputs:
+            results = await tagging_chain.abatch(filtered_inputs, return_exceptions=True)
+            for idx, result in enumerate(results):
+                row_index = row_indices[idx]
+                if isinstance(result, Exception):
+                    print(f"Error in row {row_index}: {result}")
+                    df.at[row_index, 'tags'] = 'N/A'
+                else:
+                    combined_list = [item for sublist in result.dict().values() for item in sublist]
+                    df.at[row_index, 'tags'] = '+'.join(combined_list)
+
         print(f"Processed batch {batch_index + 1}/{total_batches} ({(batch_index + 1) / total_batches * 100:.2f}% complete) ~~~~@")
     except Exception as e:
         print(f"Batch {batch_index} failed with error: {e}")
 
+# Process all rows in batches
 async def process_rows():
     batch_size = 30
     total_rows = len(df)
