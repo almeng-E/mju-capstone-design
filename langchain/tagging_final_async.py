@@ -130,7 +130,7 @@ Ensure all output categories are lists, even if containing a single item.
 tagging_prompt = PromptTemplate.from_template(tagging_template)
 
 # LLM , 체인 생성
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1).with_structured_output(
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2).with_structured_output(
     Classification
 )
 
