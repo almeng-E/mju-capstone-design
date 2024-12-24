@@ -13,3 +13,5 @@
 3. langchain 활용하여 대본 -> tag / summary 작성하기. (대본의 실제 내용 기반)
    RAG를 위한 기반 데이터 만들기
 4. langchain RAG
+
+![전체 메모 이미지](https://github.com/user-attachments/assets/2071681d-fb82-413a-9d4b-616d0547cf4c)
