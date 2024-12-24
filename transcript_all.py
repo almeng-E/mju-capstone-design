@@ -4,6 +4,7 @@ from youtube_transcript_api import YouTubeTranscriptApi as YTA
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 
+
 # 1. CSV 파일 읽어오기
 csv_file_path = 'transcript_test_processed18.csv'
 df = pd.read_csv(csv_file_path)

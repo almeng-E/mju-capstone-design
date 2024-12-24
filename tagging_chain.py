@@ -148,98 +148,63 @@ tagging_chain01 = prompt01 | llm  # w/ transcript
 tagging_chain02 = prompt02 | llm  # w/o transcript
 
 
-# total_rows = len(df)
-
-# for index, row in df.iterrows():
-#   if pd.isna(row['tags'] or row['tags'] == None):
-#     ttl = row['title']
-#     smr = row['summary']
-#     if smr:
-#       res = tagging_chain01.invoke({"title_input": ttl, "summary_input": smr})
-#     else:
-#       res = tagging_chain02.invoke({"title_input": ttl})
-#     try:
-#       res = res.dict()
-#       print('######')
-#       print(res)
-#       print(res.values())
-#       # Flatten nested lists in the response if necessary
-#       combined_list = [item for sublist in res.values() for item in (sublist if isinstance(sublist, list) else [sublist]) if item is not None]
-#       result_str = '+'.join(combined_list)      
-
-#       # Update 'tags' in the DataFrame
-#       df.at[index, 'tags'] = result_str
-
-#       # Print progress message
-#       print(f"Processed row {index + 1}/{total_rows} ({((index + 1) / total_rows) * 100:.2f}% complete)")
-
-#     except Exception as e:
-#       print(f"@@@@@@@@@@@@@@@@@Error processing row {index}: {e}")
-#       df.at[index, 'tags'] = None
-
-# # Save the updated DataFrame to CSV
-# df.to_csv('TEST_tag.csv', index=False)
-# print("Processing complete. Check file for results.")
-
 async def process_row(row: pd.Series) -> Dict[str, Any]:
-    if pd.isna(row['tags']) or row['tags'] == "N/A" or row['tags'] is None or row['tags'] == "":
-        ttl = row['title']
-        smr = row['summary']
-        try:
-            if pd.notna(smr) and smr != "N/A":
-                res = await tagging_chain01.ainvoke({"title_input": ttl, "summary_input": smr})
-            else:
-                res = await tagging_chain02.ainvoke({"title_input": ttl})
-            
-            res = res.dict()
-            combined_list = [item for sublist in res.values() for item in sublist if item]
-            result_str = '+'.join(combined_list)
+    ttl = row['title']
+    smr = row['summary']
+    try:
+        if pd.notna(smr) and smr != "N/A":
+            res = await tagging_chain01.ainvoke({"title_input": ttl, "summary_input": smr})
+        else:
+            res = await tagging_chain02.ainvoke({"title_input": ttl})
+        
+        res = res.dict()
+        combined_list = [item for sublist in res.values() for item in sublist if item]
+        result_str = '+'.join(combined_list)
 
-            return {"index": row.name, "tags": result_str}
-        except Exception as e:
-            print(f"Error processing row {row.name}: {e}")
-            return {"index": row.name, "tags": 'N/A'}
-    return {"index": row.name, "tags": row['tags']}
+        return {"index": row.name, "tags": result_str}
+    except Exception as e:
+        print(f"Error processing row {row.name}: {e}")
+        return {"index": row.name, "tags": 'N/A'}
 
 async def process_batch(batch: pd.DataFrame) -> List[Dict[str, Any]]:
     tasks = [process_row(row) for _, row in batch.iterrows()]
     return await asyncio.gather(*tasks)
 
 async def main():
-    # CSV 파일 로드
-    df = pd.read_csv('summary_and_tags.csv')  # 파일 경로를 적절히 수정하세요
-
+    # CSV 파일 전체 로드
+    df_full = pd.read_csv('summary_and_tags02.csv')
+    
+    # 태그가 비어 있는 행만 선택
+    df_to_process = df_full[df_full['tags'].isna() | (df_full['tags'] == "") | (df_full['tags'] == "N/A")]
+    
     # 배치 크기 설정
     batch_size = 10
-    total_rows = len(df)
+    total_rows = len(df_to_process)
     processed_rows = 0
 
     # 배치 처리
     for i in range(0, total_rows, batch_size):
-        batch = df.iloc[i:i+batch_size]
+        batch = df_to_process.iloc[i:i+batch_size]
         results = await process_batch(batch)
         
         # 결과 업데이트
         for result in results:
-            df.at[result['index'], 'tags'] = result['tags']
+            df_full.at[result['index'], 'tags'] = result['tags']
         
         processed_rows += len(batch)
         print(f"Processed {processed_rows}/{total_rows} rows ({processed_rows/total_rows*100:.2f}% complete)")
 
         # 9초 대기
-        print("Waiting for 9 seconds...")
-        await asyncio.sleep(9)
+        print("Waiting for 5 seconds...")
+        await asyncio.sleep(5)
         print("Resuming processing...")
 
-
     # 결과 저장
-    df.to_csv('summary_and_tags02.csv', index=False)
-    print("Processing complete. Data saved csv'")
+    df_full.to_csv('summary_and_tags03.csv', index=False)
+    print("Processing complete. Data saved to 'summary_and_tags03.csv'")
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
 
 
 
